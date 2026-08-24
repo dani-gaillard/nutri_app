@@ -186,8 +186,7 @@ def fetch_and_build_indicator(barcode: str):
         <!-- BLOC 3 : Badges -->
         <text x="630" y="75" font-size="14" fill="#616161" font-weight="bold">Indicateurs</text>
         {badges_svg}
-    </svg>
-    """
+    </svg>"""
 
 # --- Interface Streamlit (Identique à ta version corrigée) ---
 st.set_page_config(layout="wide") # Conseillé pour afficher la carte SVG de 840px
@@ -211,7 +210,15 @@ ctx = webrtc_streamer(
     key="barcode-scanner",
     video_frame_callback=video_frame_callback,
     rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
-    media_stream_constraints={"video": {"facingMode": "environment"}, "audio": False},
+    media_stream_constraints={
+        "video": {
+            "facingMode": "environment",
+            "width": {"ideal": 1280, "min": 640},
+            "height": {"ideal": 720, "min": 480},
+            "frameRate": {"ideal": 20},
+        },
+        "audio": False,
+    },
 )
 
 if ctx.state.playing:
