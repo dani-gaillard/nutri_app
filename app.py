@@ -1,46 +1,42 @@
 import av
 import cv2
+import queue
 import streamlit as st
 from pyzbar.pyzbar import decode
-from streamlit_webrtc import VideoProcessorBase, webrtc_streamer
+from streamlit_webrtc import webrtc_streamer
 
 st.title("Scanner Code-Barres")
 
+# 1. Initialisation d'une file d'attente pour la communication entre les threads
+if "barcode_queue" not in st.session_state:
+    st.session_state.barcode_queue = queue.Queue()
 
-class BarcodeProcessor(VideoProcessorBase):
-
-  def __init__(self) -> None:
-    self.found_code = None
-
-  def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
+# 2. Remplacement de la classe par un simple callback
+def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
     img = frame.to_ndarray(format="bgr24")
-
-    # Étape 1 : Amélioration de l'image (Nuances de gris + Contraste)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # Étape 2 : Détection pyzbar
     barcodes = decode(gray)
 
     for barcode in barcodes:
-      self.found_code = barcode.data.decode("utf-8")
+        barcode_data = barcode.data.decode("utf-8")
+        # Envoi du résultat au thread principal de Streamlit
+        st.session_state.barcode_queue.put(barcode_data)
 
-      # Dessine le rectangle vert de validation si détecté
-      (x, y, w, h) = barcode.rect
-      cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 4)
+        # Dessine le rectangle vert de validation
+        (x, y, w, h) = barcode.rect
+        cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 4)
 
     return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-
-# Configuration WebRTC avancée pour mobiles
+# 3. Configuration WebRTC mise à jour
 ctx = webrtc_streamer(
     key="barcode-scanner-webrtc",
-    video_processor_factory=BarcodeProcessor,
+    video_frame_callback=video_frame_callback, # Utilisation du callback
     rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
-    # FORÇAGE DE LA RÉSOLUTION & PARAMÈTRES MOBILES
     media_stream_constraints={
         "video": {
-            "facingMode": "environment",  # Caméra arrière
-            "width": {"ideal": 1280, "min": 640},  # Force une bonne résolution
+            "facingMode": "environment",
+            "width": {"ideal": 1280, "min": 640},
             "height": {"ideal": 720, "min": 480},
             "frameRate": {"ideal": 20},
         },
@@ -48,15 +44,18 @@ ctx = webrtc_streamer(
     },
 )
 
-# Zone d'affichage du résultat
-if ctx.video_processor:
-  detected_code = getattr(ctx.video_processor, "found_code", None)
-
-  if detected_code:
-    st.success(f"Code-barres détecté : {detected_code}")
-    # Optionnel : bouton pour réinitialiser la recherche
-    if st.button("Scanner un autre produit"):
-      ctx.video_processor.found_code = None
-      st.rerun()
-  else:
-    st.info("Conseil : Approchez ou éloignez doucement le code-barres du capteur pour aider la mise au point.")
+# 4. Boucle d'écoute pour afficher le résultat en temps réel
+if ctx.state.playing:
+    result_placeholder = st.empty()
+    result_placeholder.info("Conseil : Approchez ou éloignez doucement le code-barres du capteur pour aider la mise au point.")
+    
+    # Maintien du thread Streamlit actif tant que la vidéo tourne
+    while True:
+        try:
+            # Attend un code-barres pendant 1 seconde, puis recommence
+            detected_code = st.session_state.barcode_queue.get(timeout=1.0)
+            result_placeholder.success(f"Code-barres détecté : **{detected_code}**")
+        except queue.Empty:
+            # Si le flux s'arrête, on sort de la boucle pour éviter de bloquer Streamlit
+            if not ctx.state.playing:
+                break
