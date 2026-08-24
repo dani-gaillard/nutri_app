@@ -1,10 +1,12 @@
-import re
-import requests
+import av
 import cv2
-import numpy as np
+import queue
 import streamlit as st
 from pyzbar.pyzbar import decode
-from camera_input_live import camera_input_live
+from streamlit_webrtc import webrtc_streamer
+import re
+import requests
+import numpy as np
 
 def parse_portion(portion_str):
     """Extrait le poids en grammes depuis le champ serving_size."""
@@ -103,37 +105,84 @@ def fetch_and_build_indicator(barcode: str):
 # --- Interface Streamlit ---
 st.title("Scanner Nutritionnel")
 
-# Initialisation des variables de session pour ne pas perdre les données à chaque rafraîchissement
-if 'last_barcode' not in st.session_state:
-    st.session_state.last_barcode = None
-if 'current_svg' not in st.session_state:
-    st.session_state.current_svg = None
+# 1. Création de la file d'attente dans la session
+if "barcode_queue" not in st.session_state:
+    st.session_state.barcode_queue = queue.Queue()
 
-image_data = camera_input_live(key="barcode_scanner", debounce=500)
+# 2. L'ASTUCE EST ICI : On stocke la référence dans une variable locale.
+# Le thread WebRTC utilisera cette variable locale et ne fera pas appel 
+# à st.session_state, évitant ainsi l'erreur de contexte.
+barcode_queue = st.session_state.barcode_queue
 
-if image_data is not None:
-    bytes_data = image_data.getvalue()
-    cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
-    
-    # Masqué par défaut pour ne pas surcharger l'écran du téléphone, 
-    # tu peux le décommenter si tu veux voir le flux brut
-    st.image(cv2_img, channels="BGR", caption="Flux de la caméra")
-
-    barcodes = decode(cv2_img)
+def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
+    img = frame.to_ndarray(format="bgr24")
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    barcodes = decode(gray)
 
     for barcode in barcodes:
         barcode_data = barcode.data.decode("utf-8")
         
-        # On ne lance la requête API que si c'est un nouveau produit
-        if barcode_data != st.session_state.last_barcode:
-            st.session_state.last_barcode = barcode_data
-            st.success(f"Nouveau code détecté : {barcode_data}")
-            
-            # Génération et sauvegarde du SVG en session
-            svg = fetch_and_build_indicator(barcode_data)
-            st.session_state.current_svg = svg
+        # On utilise la variable locale ici !
+        barcode_queue.put(barcode_data)
 
-# Affichage du dernier indicateur généré
-if st.session_state.current_svg:
-    # Affiche le code SVG directement dans l'interface web
-    st.markdown(f"<div>{st.session_state.current_svg}</div>", unsafe_allow_html=True)
+        # Dessin du rectangle de validation
+        (x, y, w, h) = barcode.rect
+        cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 4)
+
+    return av.VideoFrame.from_ndarray(img, format="bgr24")
+
+# 3. Configuration WebRTC
+ctx = webrtc_streamer(
+    key="barcode-scanner",
+    video_frame_callback=video_frame_callback,
+    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+    media_stream_constraints={
+        "video": {
+            "facingMode": "environment",
+            "width": {"ideal": 1280, "min": 640},
+            "height": {"ideal": 720, "min": 480},
+            "frameRate": {"ideal": 20},
+        },
+        "audio": False,
+    },
+)
+
+# 4. Affichage des résultats
+if ctx.state.playing:
+    st.info("Scanner actif. Placez un code-barres devant la caméra.")
+    
+    # Création d'un espace dynamique. 
+    # Tout ce qui sera mis dedans écrasera le contenu précédent.
+    display_placeholder = st.empty()
+    
+    # On garde en mémoire le dernier code pour éviter de recalculer le même produit en boucle
+    last_scanned_code = None
+    
+    # La boucle tourne UNIQUEMENT tant que la caméra est allumée
+    while ctx.state.playing:
+        try:
+            # On écoute la file d'attente (timeout court pour ne pas bloquer l'interface)
+            detected_code = barcode_queue.get(timeout=0.5)
+            
+            # On met à jour l'affichage SEULEMENT si c'est un nouveau produit
+            if detected_code != last_scanned_code:
+                last_scanned_code = detected_code
+                
+                # On utilise "with" pour injecter le contenu dans le placeholder
+                with display_placeholder.container():
+                    st.success(f"Code-barres détecté : **{detected_code}**")
+
+                    # Génération du SVG
+                    svg = fetch_and_build_indicator(detected_code)
+                    
+                    if svg:
+                        # Affiche le code SVG directement dans l'interface web
+                        st.markdown(f"<div>{svg}</div>", unsafe_allow_html=True)
+            
+            # Nettoyage de la file d'attente pour éviter l'accumulation
+            with barcode_queue.mutex:
+                barcode_queue.queue.clear()
+                
+        except queue.Empty:
+            # Si aucun code n'est détecté pendant ces 0.5 secondes, on recommence
+            pass
