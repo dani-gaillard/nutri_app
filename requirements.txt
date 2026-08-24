@@ -4,3 +4,4 @@ opencv-python-headless
 numpy
 pyzbar
 streamlit-camera-input-live
+streamlit-webrtc
