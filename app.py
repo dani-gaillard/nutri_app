@@ -135,6 +135,9 @@ if image_data is not None:
   bytes_data = image_data.getvalue()
   cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
 
+  # Affiche à l'écran ce que l'appareil est en train de capturer
+  st.image(cv2_img, channels="BGR", caption="Flux de la caméra")
+
   # Décode les codes-barres présents dans l'image
   barcodes = decode(cv2_img)
 
