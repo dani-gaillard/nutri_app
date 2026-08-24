@@ -50,8 +50,9 @@ class BarcodeProcessor(VideoProcessorBase):
 ctx = webrtc_streamer(
     key="barcode-scanner-webrtc",
     video_processor_factory=BarcodeProcessor,
+    # Utilisation du serveur STUN officiel de Google sans ambiguïté de port
     rtc_configuration={
-        "iceServers": [{"urls": ["stun:://google.com"]}]
+        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
     },
     media_stream_constraints={"video": {"facingMode": "environment"}, "audio": False},
 )
