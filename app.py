@@ -151,8 +151,12 @@ ctx = webrtc_streamer(
 if ctx.state.playing:
     st.info("Scanner actif. Placez un code-barres devant la caméra.")
     
-    # Espace vide réservé pour l'affichage du résultat
-    result_placeholder = st.empty()
+    # Création d'un espace dynamique. 
+    # Tout ce qui sera mis dedans écrasera le contenu précédent.
+    display_placeholder = st.empty()
+    
+    # On garde en mémoire le dernier code pour éviter de recalculer le même produit en boucle
+    last_scanned_code = None
     
     # La boucle tourne UNIQUEMENT tant que la caméra est allumée
     while ctx.state.playing:
@@ -160,17 +164,22 @@ if ctx.state.playing:
             # On écoute la file d'attente (timeout court pour ne pas bloquer l'interface)
             detected_code = barcode_queue.get(timeout=0.5)
             
-            # Mise à jour de l'interface en temps réel
-            result_placeholder.success(f"Code-barres détecté : **{detected_code}**")
+            # On met à jour l'affichage SEULEMENT si c'est un nouveau produit
+            if detected_code != last_scanned_code:
+                last_scanned_code = detected_code
+                
+                # On utilise "with" pour injecter le contenu dans le placeholder
+                with display_placeholder.container():
+                    st.success(f"Code-barres détecté : **{detected_code}**")
 
-            # Génération et sauvegarde du SVG en session
-            svg = fetch_and_build_indicator(detected_code)
-            st.session_state.current_svg = svg
-            # Affiche le code SVG directement dans l'interface web
-            st.markdown(f"<div>{st.session_state.current_svg}</div>", unsafe_allow_html=True)
+                    # Génération du SVG
+                    svg = fetch_and_build_indicator(detected_code)
+                    
+                    if svg:
+                        # Affiche le code SVG directement dans l'interface web
+                        st.markdown(f"<div>{svg}</div>", unsafe_allow_html=True)
             
-            # Nettoyage de la file d'attente pour éviter que le même code 
-            # ne s'affiche 50 fois si la caméra reste braquée dessus
+            # Nettoyage de la file d'attente pour éviter l'accumulation
             with barcode_queue.mutex:
                 barcode_queue.queue.clear()
                 
