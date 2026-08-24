@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import streamlit as st
 from pyzbar.pyzbar import decode
-from streamlit_camera_input_live import camera_input_live
+from camera_input_live import camera_input_live
 
 
 
