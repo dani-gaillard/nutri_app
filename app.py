@@ -117,7 +117,7 @@ if image_data is not None:
     
     # Masqué par défaut pour ne pas surcharger l'écran du téléphone, 
     # tu peux le décommenter si tu veux voir le flux brut
-    # st.image(cv2_img, channels="BGR", caption="Flux de la caméra")
+    st.image(cv2_img, channels="BGR", caption="Flux de la caméra")
 
     barcodes = decode(cv2_img)
 
