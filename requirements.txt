@@ -1,6 +1,6 @@
 streamlit
-streamlit-camera-input-live
-pyzbar
+requests
 opencv-python-headless
 numpy
-requests
+pyzbar
+streamlit-camera-input-live
