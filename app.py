@@ -33,7 +33,7 @@ class BarcodeProcessor(VideoProcessorBase):
 ctx = webrtc_streamer(
     key="barcode-scanner-webrtc",
     video_processor_factory=BarcodeProcessor,
-    rtc_configuration={"iceServers": [{"urls": ["stun:://google.com"]}]},
+    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
     media_stream_constraints={"video": {"facingMode": "environment"}, "audio": False},
 )
 
