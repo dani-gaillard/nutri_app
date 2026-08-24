@@ -7,56 +7,46 @@ from streamlit_webrtc import VideoProcessorBase, webrtc_streamer
 st.title("Scanner Code-Barres Ultra-Fluide")
 
 
-# Gestionnaire de traitement vidéo en arrière-plan
 class BarcodeProcessor(VideoProcessorBase):
 
+  def __init__(self) -> None:
+    self.found_code = None
+
   def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
-    # Convertit la frame WebRTC en image OpenCV (BGR)
     img = frame.to_ndarray(format="bgr24")
 
-    # Détection du code-barres
-    barcodes = decode(img)
+    # Conversion en nuances de gris pour une meilleure détection pyzbar
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    barcodes = decode(gray)
 
     for barcode in barcodes:
-      barcode_data = barcode.data.decode("utf-8")
+      self.found_code = barcode.data.decode("utf-8")
 
-      # Action : On dessine un rectangle vert autour du code détecté
+      # Dessine un cadre vert autour du code détecté
       (x, y, w, h) = barcode.rect
       cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 3)
-
-      # Optionnel : Écrit le texte du code sur la vidéo
       cv2.putText(
           img,
-          barcode_data,
+          self.found_code,
           (x, y - 10),
           cv2.FONT_HERSHEY_SIMPLEX,
-          0.5,
+          0.6,
           (0, 255, 0),
           2,
       )
 
-      # Stocke le résultat dans la session Streamlit pour l'interface utilisateur
-      if (
-          "last_code" not in st.session_state
-          or st.session_state.last_code != barcode_data
-      ):
-        st.session_state.last_code = barcode_data
-
-    # Renvoie l'image (modifiée ou non) pour un affichage vidéo fluide à l'écran
     return av.VideoFrame.from_ndarray(img, format="bgr24")
 
 
-# Lance le flux vidéo de manière optimisée pour les smartphones
+# Lancement du flux WebRTC
 ctx = webrtc_streamer(
     key="barcode-scanner-webrtc",
     video_processor_factory=BarcodeProcessor,
-    # Utilisation du serveur STUN officiel de Google sans ambiguïté de port
-    rtc_configuration={
-        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
-    },
+    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
     media_stream_constraints={"video": {"facingMode": "environment"}, "audio": False},
 )
 
-# Affiche le résultat dans l'interface Streamlit principale si un code est détecté
-if "last_code" in st.session_state:
-  st.success(f"Dernier code détecté : {st.session_state.last_code}")
+# Lecture sécurisée du résultat dans le fil principal de Streamlit
+if ctx.video_processor:
+  if ctx.video_processor.found_code:
+    st.success(f"Code-barres détecté : {ctx.video_processor.found_code}")
