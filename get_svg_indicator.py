@@ -117,7 +117,14 @@ def fetch_and_build_indicator(barcode: str):
 
     product_name = str(prod.get('product_name', 'Produit inconnu'))[:45]
 
-    # --- 6. CONSTRUCTION DU SVG FINAL (3 Blocs) ---
+    # --- 6. COULEURS ---
+    c_glu = "#0074f9"
+    c_sug = "#004A9E"
+    c_pro = "#00B209" # ou "#66bb6a"
+    c_lip = "#ff5900"
+    c_sat = "#9f3800"
+
+    # --- 7. CONSTRUCTION DU SVG FINAL (3 Blocs) ---
     return f"""
     <svg width="790" height="260" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, sans-serif">
         <rect width="840" height="260" rx="14" fill="#ffffff" stroke="#e0e0e0" stroke-width="1.5"/>
@@ -154,31 +161,31 @@ def fetch_and_build_indicator(barcode: str):
             <rect x="0" y="0" width="{bar_w}" height="28" fill="#f5f5f5"/>
             
             <!-- Glucides + Sucres -->
-            <rect x="0" y="0" width="{w_glu:.1f}" height="28" fill="#42a5f5"/>
-            <rect x="{w_sug:.1f}" y="14" width="{w_sug:.1f}" height="14" fill="#1565c0"/>
+            <rect x="0" y="0" width="{w_glu:.1f}" height="28" fill="{c_glu}"/>
+            <rect x="0" y="14" width="{w_sug:.1f}" height="14" fill="{c_sug}"/>
             
             <!-- Protéines -->
-            <rect x="{w_glu:.1f}" y="0" width="{w_pro:.1f}" height="28" fill="#66bb6a"/>
+            <rect x="{w_glu:.1f}" y="0" width="{w_pro:.1f}" height="28" fill="{c_pro}"/>
             
             <!-- Lipides + Saturés (Hachure simulée par couleur sombre alignée à droite de sa section) -->
-            <rect x="{w_glu + w_pro:.1f}" y="0" width="{w_lip:.1f}" height="28" fill="#ffa726"/>
-            <rect x="{w_glu + w_pro + w_lip - w_sat:.1f}" y="14" width="{w_sat:.1f}" height="14" fill="#e65100"/>
+            <rect x="{w_glu + w_pro:.1f}" y="0" width="{w_lip:.1f}" height="28" fill="{c_lip}"/>
+            <rect x="{w_glu + w_pro + w_lip - w_sat:.1f}" y="14" width="{w_sat:.1f}" height="14" fill="{c_sat}"/>
 
             <!-- Bordure optionnelle pour délimiter nettement l'extrémité droite -->
             <rect x="0" y="0" width="{bar_w}" height="28" rx="6" ry="6" fill="none" stroke="#ccc" stroke-width="1"/>
         </g>
         
         <!-- Textes sous jauge -->
-        <text x="220" y="100" font-size="13" font-weight="bold" fill="#42a5f5">■ Glucides</text>
+        <text x="220" y="100" font-size="13" font-weight="bold" fill="{c_glu}">■ Glucides</text>
         <text x="220" y="117" font-size="13" fill="#333">{glu:.1f} g</text>
-        <text x="220" y="170" font-size="11" font-weight="bold" fill="#1565c0">dont sucres : {sug:.1f} g</text>
+        <text x="220" y="170" font-size="11" font-weight="bold" fill="{c_sug}">dont sucres : {sug:.1f} g</text>
         
-        <text x="330" y="100" font-size="13" font-weight="bold" fill="#2e7d32">■ Protéines</text>
+        <text x="330" y="100" font-size="13" font-weight="bold" fill="{c_pro}">■ Protéines</text>
         <text x="330" y="117" font-size="13" fill="#333">{pro:.1f} g</text>
         
-        <text x="440" y="100" font-size="13" font-weight="bold" fill="#ffa726">■ Lipides</text>
+        <text x="440" y="100" font-size="13" font-weight="bold" fill="{c_lip}">■ Lipides</text>
         <text x="440" y="117" font-size="13" fill="#333">{lip:.1f} g</text>
-        <text x="440" y="170" font-size="11" font-weight="bold" fill="#e65100">dont saturés : {sat:.1f} g</text>
+        <text x="440" y="170" font-size="11" font-weight="bold" fill="{c_sat}">dont saturés : {sat:.1f} g</text>
 
         <!-- BLOC 3 : Badges -->
         <text x="580" y="75" font-size="14" fill="#616161" font-weight="bold">Indicateurs</text>
