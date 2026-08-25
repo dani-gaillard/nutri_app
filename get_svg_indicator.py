@@ -120,7 +120,7 @@ def fetch_and_build_indicator(barcode: str):
     # --- 6. COULEURS ---
     c_glu = "#0074f9"
     c_sug = "#004A9E"
-    c_pro = "#00B209" # ou "#66bb6a"
+    c_pro = "#00B209"
     c_lip = "#ff5900"
     c_sat = "#9f3800"
 

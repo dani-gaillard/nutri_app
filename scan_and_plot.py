@@ -1,16 +1,8 @@
 from get_svg_indicator import fetch_and_build_indicator
 
-import av
 import cv2
-import queue
-import re
-import requests
-import streamlit as st
 from pyzbar.pyzbar import decode
-from streamlit_webrtc import webrtc_streamer
-import base64
 from IPython.display import SVG, display
-
 
 camera_id = 0
 delay = 1
@@ -39,14 +31,5 @@ while True:
 
 cv2.destroyWindow(window_name)
 
-
-
-
 #display(SVG(fetch_and_build_indicator(3850354016830)))
-
-
-
-
-
-
 
